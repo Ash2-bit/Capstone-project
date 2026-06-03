@@ -103,6 +103,5 @@ SAPULIDI dikembangkan dengan tujuan menjadi platform pelaporan bencana yang adap
 
 Capstone Project 2026
 
-Nara.tim
 
 "Inovasi Berkelanjutan untuk Ketahanan Masyarakat"
