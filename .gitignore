@@ -1,0 +1,41 @@
+# ==========================
+# PYTHON & VIRTUAL ENV
+# ==========================
+.venv/
+sapulidi-ai/venv/
+__pycache__/
+*.pyc
+
+# ==========================
+# NODE.JS & FRONTEND/BACKEND
+# ==========================
+node_modules/
+.next/
+build/
+out/
+npm-debug.log*
+
+# ==========================
+# ENVIRONMENT VARIABLES (RAHASIA)
+# ==========================
+.env
+.env.local
+.env.*
+!.env.example
+
+# ==========================
+# AI MODELS (Mencegah file besar terupload)
+# ==========================
+# GitHub menolak file di atas 100MB. Aktifkan baris di bawah 
+# jika folder models berisi file AI yang besar.
+sapulidi-ai/models/*.pt
+sapulidi-ai/models/*.bin
+sapulidi-ai/models/*.h5
+sapulidi-ai/models/*.onnx
+
+# ==========================
+# LOGS & OS FILES
+# ==========================
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model cache {
+  key        String @id @db.VarChar(255)
+  value      String @db.MediumText
+  expiration BigInt
+
+  @@index([expiration], map: "cache_expiration_index")
+}
+
+model cache_locks {
+  key        String @id @db.VarChar(255)
+  owner      String @db.VarChar(255)
+  expiration BigInt
+
+  @@index([expiration], map: "cache_locks_expiration_index")
+}
+
+model clustering_sessions {
+  id                      BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  province_id             BigInt             @db.UnsignedBigInt
+  algorithm               String             @db.VarChar(255)
+  parameters              String             @db.LongText
+  start_date              DateTime           @db.Date
+  end_date                DateTime           @db.Date
+  silhouette_score        Float?
+  davies_bouldin_index    Float?
+  calinski_harabasz_index Float?
+  total_reports_processed Int?
+  processing_time_ms      Int?
+  processed_at            DateTime?          @db.Timestamp(0)
+  created_at              DateTime?          @db.Timestamp(0)
+  updated_at              DateTime?          @db.Timestamp(0)
+  provinces               provinces          @relation(fields: [province_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "clustering_sessions_province_id_foreign")
+  spatial_clusters        spatial_clusters[]
+
+  @@index([province_id], map: "clustering_sessions_province_id_foreign")
+}
+
+model failed_jobs {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid       String   @unique(map: "failed_jobs_uuid_unique") @db.VarChar(255)
+  connection String   @db.VarChar(255)
+  queue      String   @db.VarChar(255)
+  payload    String   @db.LongText
+  exception  String   @db.LongText
+  failed_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([connection, queue, failed_at], map: "failed_jobs_connection_queue_failed_at_index")
+}
+
+model job_batches {
+  id             String  @id @db.VarChar(255)
+  name           String  @db.VarChar(255)
+  total_jobs     Int
+  pending_jobs   Int
+  failed_jobs    Int
+  failed_job_ids String  @db.LongText
+  options        String? @db.MediumText
+  cancelled_at   Int?
+  created_at     Int
+  finished_at    Int?
+}
+
+model jobs {
+  id           BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  queue        String @db.VarChar(255)
+  payload      String @db.LongText
+  attempts     Int    @db.UnsignedSmallInt
+  reserved_at  Int?   @db.UnsignedInt
+  available_at Int    @db.UnsignedInt
+  created_at   Int    @db.UnsignedInt
+
+  @@index([queue], map: "jobs_queue_index")
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement()) @db.UnsignedInt
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+model password_reset_tokens {
+  email      String    @id @db.VarChar(255)
+  token      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+}
+
+model provinces {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  name                String                @db.VarChar(255)
+  created_at          DateTime?             @db.Timestamp(0)
+  updated_at          DateTime?             @db.Timestamp(0)
+  clustering_sessions clustering_sessions[]
+  reports             reports[]
+}
+
+model report_cluster {
+  id                 BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  report_id          BigInt           @db.UnsignedBigInt
+  spatial_cluster_id BigInt           @db.UnsignedBigInt
+  created_at         DateTime?        @db.Timestamp(0)
+  updated_at         DateTime?        @db.Timestamp(0)
+  reports            reports          @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "report_cluster_report_id_foreign")
+  spatial_clusters   spatial_clusters @relation(fields: [spatial_cluster_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "report_cluster_spatial_cluster_id_foreign")
+
+  @@index([report_id], map: "report_cluster_report_id_foreign")
+  @@index([spatial_cluster_id], map: "report_cluster_spatial_cluster_id_foreign")
+}
+
+model report_photos {
+  id               BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  report_id        BigInt                 @db.UnsignedBigInt
+  photo_path       String                 @db.VarChar(255)
+  severity         report_photos_severity @default(unknown)
+  confidence_score Float?
+  model_version    String?                @db.VarChar(255)
+  created_at       DateTime?              @db.Timestamp(0)
+  updated_at       DateTime?              @db.Timestamp(0)
+  reports          reports                @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "report_photos_report_id_foreign")
+
+  @@index([report_id], map: "report_photos_report_id_foreign")
+}
+
+model reports {
+  id                  BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  province_id         BigInt                   @db.UnsignedBigInt
+  reporter_name       String                   @db.VarChar(255)
+  reporter_address    String?                  @db.Text
+  reporter_phone      String?                  @db.VarChar(255)
+  category            reports_category
+  latitude            Decimal                  @db.Decimal(10, 8)
+  longitude           Decimal                  @db.Decimal(11, 8)
+  description         String?                  @db.Text
+  overall_severity    reports_overall_severity @default(unknown)
+  status              reports_status           @default(pending)
+  fatalities          Int                      @default(0)
+  injured             Int                      @default(0)
+  missing             Int                      @default(0)
+  evacuees            Int                      @default(0)
+  created_at          DateTime?                @db.Timestamp(0)
+  updated_at          DateTime?                @db.Timestamp(0)
+  report_cluster      report_cluster[]
+  report_photos       report_photos[]
+  provinces           provinces                @relation(fields: [province_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reports_province_id_foreign")
+  sar_recommendations sar_recommendations[]
+
+  @@index([province_id], map: "reports_province_id_foreign")
+}
+
+model sar_bases {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  name                String                @db.VarChar(255)
+  address             String                @db.Text
+  latitude            Decimal               @db.Decimal(10, 8)
+  longitude           Decimal               @db.Decimal(11, 8)
+  contact_number      String?               @db.VarChar(255)
+  created_at          DateTime?             @db.Timestamp(0)
+  updated_at          DateTime?             @db.Timestamp(0)
+  sar_recommendations sar_recommendations[]
+}
+
+model sar_recommendations {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  report_id   BigInt    @db.UnsignedBigInt
+  sar_base_id BigInt    @db.UnsignedBigInt
+  distance_km Float
+  rank        Int
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @db.Timestamp(0)
+  reports     reports   @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "sar_recommendations_report_id_foreign")
+  sar_bases   sar_bases @relation(fields: [sar_base_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "sar_recommendations_sar_base_id_foreign")
+
+  @@index([report_id], map: "sar_recommendations_report_id_foreign")
+  @@index([sar_base_id], map: "sar_recommendations_sar_base_id_foreign")
+}
+
+model sessions {
+  id            String  @id @db.VarChar(255)
+  user_id       BigInt? @db.UnsignedBigInt
+  ip_address    String? @db.VarChar(45)
+  user_agent    String? @db.Text
+  payload       String  @db.LongText
+  last_activity Int
+
+  @@index([last_activity], map: "sessions_last_activity_index")
+  @@index([user_id], map: "sessions_user_id_index")
+}
+
+model spatial_clusters {
+  id                    BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  clustering_session_id BigInt                          @db.UnsignedBigInt
+  name                  String                          @db.VarChar(255)
+  priority_level        spatial_clusters_priority_level
+  centroid_lat          Decimal                         @db.Decimal(10, 8)
+  centroid_long         Decimal                         @db.Decimal(11, 8)
+  radius_meter          Float?
+  total_reports         Int                             @default(0)
+  total_fatalities      Int                             @default(0)
+  total_injured         Int                             @default(0)
+  total_missing         Int                             @default(0)
+  total_evacuees        Int                             @default(0)
+  created_at            DateTime?                       @db.Timestamp(0)
+  updated_at            DateTime?                       @db.Timestamp(0)
+  ai_prompt             String?                         @db.Text
+  ai_recommendation     String?                         @db.MediumText
+  report_cluster        report_cluster[]
+  clustering_sessions   clustering_sessions             @relation(fields: [clustering_session_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "spatial_clusters_clustering_session_id_foreign")
+
+  @@index([clustering_session_id], map: "spatial_clusters_clustering_session_id_foreign")
+}
+
+model users {
+  id                BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  name              String     @db.VarChar(255)
+  email             String     @unique(map: "users_email_unique") @db.VarChar(255)
+  email_verified_at DateTime?  @db.Timestamp(0)
+  password          String     @db.VarChar(255)
+  role              users_role @default(admin)
+  remember_token    String?    @db.VarChar(100)
+  created_at        DateTime?  @db.Timestamp(0)
+  updated_at        DateTime?  @db.Timestamp(0)
+}
+
+enum report_photos_severity {
+  ringan
+  sedang
+  berat
+  unknown
+}
+
+enum spatial_clusters_priority_level {
+  red
+  yellow
+  green
+}
+
+enum reports_category {
+  building_damage
+  infrastructure_damage
+}
+
+enum users_role {
+  admin
+}
+
+enum reports_overall_severity {
+  ringan
+  sedang
+  berat
+  unknown
+}
+
+enum reports_status {
+  pending
+  analyzed
+  clustered
+  resolved
+}
