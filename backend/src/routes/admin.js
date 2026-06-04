@@ -86,8 +86,9 @@ router.post('/provinces', async (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Nama provinsi wajib diisi.' });
 
+    const now = new Date();
     const newProvince = await prisma.provinces.create({
-      data: { name },
+      data: { name, created_at: now, updated_at: now },
     });
     res.json(serialize({ success: true, data: newProvince }));
   } catch (error) {
@@ -103,7 +104,7 @@ router.put('/provinces/:id', async (req, res) => {
 
     const updated = await prisma.provinces.update({
       where: { id },
-      data: { name },
+      data: { name, updated_at: new Date() },
     });
     res.json(serialize({ success: true, data: updated }));
   } catch (error) {
@@ -143,6 +144,7 @@ router.post('/sar-bases', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nama, alamat, latitude, dan longitude wajib diisi.' });
     }
 
+    const now = new Date();
     const newBase = await prisma.sar_bases.create({
       data: {
         name,
@@ -150,6 +152,8 @@ router.post('/sar-bases', async (req, res) => {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         contact_number: contact_number || null,
+        created_at: now,
+        updated_at: now,
       },
     });
     res.json(serialize({ success: true, data: newBase }));
@@ -174,6 +178,7 @@ router.put('/sar-bases/:id', async (req, res) => {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         contact_number: contact_number || null,
+        updated_at: new Date(),
       },
     });
     res.json(serialize({ success: true, data: updated }));
@@ -249,6 +254,7 @@ router.put('/reports/:id', async (req, res) => {
         injured: injured !== undefined ? parseInt(injured, 10) : undefined,
         missing: missing !== undefined ? parseInt(missing, 10) : undefined,
         evacuees: evacuees !== undefined ? parseInt(evacuees, 10) : undefined,
+        updated_at: new Date(),
       },
     });
 
@@ -337,6 +343,7 @@ router.post('/sessions', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Provinsi tidak ditemukan.' });
     }
 
+    const now = new Date();
     const newSession = await prisma.clustering_sessions.create({
       data: {
         province_id: provinceId,
@@ -344,6 +351,8 @@ router.post('/sessions', async (req, res) => {
         parameters: parameters ? JSON.stringify(parameters) : '{}',
         start_date: new Date(start_date),
         end_date: new Date(end_date),
+        created_at: now,
+        updated_at: now,
       },
     });
 

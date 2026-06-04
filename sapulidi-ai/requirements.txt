@@ -4,6 +4,4 @@ scikit-learn
 numpy
 pydantic
 google-genai
-tensorflow
-keras
-pillow
+

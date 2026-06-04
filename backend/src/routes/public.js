@@ -368,6 +368,8 @@ router.post('/reports', upload.array('photos', 10), async (req, res) => {
 
     // Create Report transactionally with Photos
     const newReport = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+
       const report = await tx.reports.create({
         data: {
           province_id: provinceId,
@@ -384,6 +386,8 @@ router.post('/reports', upload.array('photos', 10), async (req, res) => {
           injured: parseInt(injured || '0', 10),
           missing: parseInt(missing || '0', 10),
           evacuees: parseInt(evacuees || '0', 10),
+          created_at: now,
+          updated_at: now,
         },
       });
 
@@ -395,6 +399,8 @@ router.post('/reports', upload.array('photos', 10), async (req, res) => {
           report_id: report.id,
           photo_path: relativePath,
           severity: 'unknown',
+          created_at: now,
+          updated_at: now,
         };
       });
 

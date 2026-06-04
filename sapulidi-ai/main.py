@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import numpy as np
-from inference import predict_building_damage, load_damage_model
+from python_ml.inference import predict_building_damage, load_damage_model
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 import math

@@ -66,6 +66,7 @@ export const pythonMlService = {
             severity: severity,
             confidence_score: confidence,
             model_version: 'model-v1',
+            updated_at: new Date(),
           },
         });
 
@@ -119,6 +120,7 @@ export const pythonMlService = {
           data: {
             overall_severity: highestSeverity,
             status: 'analyzed',
+            updated_at: new Date(),
           },
         });
         console.log(`Parent Report #${reportId} overall_severity updated to ${highestSeverity} based on photo classifications.`);
@@ -236,6 +238,7 @@ export const pythonMlService = {
 
       // Persist SpatialClusters and report associations
       for (const clusterData of result.clusters) {
+        const now = new Date();
         const spatialCluster = await prisma.spatial_clusters.create({
           data: {
             clustering_session_id: BigInt(sessionId),
@@ -251,6 +254,8 @@ export const pythonMlService = {
             total_evacuees: Number(clusterData.total_evacuees),
             ai_prompt: clusterData.ai_prompt || null,
             ai_recommendation: clusterData.ai_recommendation || null,
+            created_at: now,
+            updated_at: now,
           },
         });
 
@@ -259,6 +264,8 @@ export const pythonMlService = {
           const reportClusterData = clusterData.report_ids.map(reportId => ({
             report_id: BigInt(reportId),
             spatial_cluster_id: spatialCluster.id,
+            created_at: now,
+            updated_at: now,
           }));
 
           await prisma.report_cluster.createMany({
@@ -269,11 +276,14 @@ export const pythonMlService = {
 
       // Persist SAR Recommendations
       if (result.recommendations && result.recommendations.length > 0) {
+        const recNow = new Date();
         const recommendationInserts = result.recommendations.map(rec => ({
           report_id: BigInt(rec.report_id),
           sar_base_id: BigInt(rec.sar_base_id),
           distance_km: parseFloat(rec.distance_km),
           rank: Number(rec.rank),
+          created_at: recNow,
+          updated_at: recNow,
         }));
 
         // Batch inserts for safety/performance
@@ -302,6 +312,7 @@ export const pythonMlService = {
           },
           data: {
             status: 'clustered',
+            updated_at: new Date(),
           },
         });
       }
@@ -316,6 +327,7 @@ export const pythonMlService = {
           total_reports_processed: Number(result.total_reports_processed),
           processing_time_ms: Number(result.processing_time_ms),
           processed_at: new Date(),
+          updated_at: new Date(),
         },
       });
 

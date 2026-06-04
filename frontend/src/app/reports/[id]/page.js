@@ -2,10 +2,67 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { publicApi, getStorageUrl } from '../../../lib/api';
-import { Activity, Printer, Calendar, FileText, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { publicApi } from '../../../lib/api';
 
+// ─── Inline Markdown Parser (mirrors Laravel parseMarkdownToHtml) ─────────────
+function parseMarkdownToHtml(markdown) {
+  if (!markdown) return '';
+
+  const parseBold = (str) =>
+    str
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  const lines = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const htmlParts = [];
+  let inList = false;
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (trimmed === '---' || trimmed === '***') {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      htmlParts.push('<hr style="border:0;border-top:1px solid #cbd5e1;margin:1.25rem 0;">');
+      return;
+    }
+    if (trimmed.startsWith('### ')) {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      htmlParts.push(`<h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1.05rem;color:#1e3a8a;margin:1.25rem 0 0.5rem 0;">${parseBold(trimmed.slice(4))}</h3>`);
+      return;
+    }
+    if (trimmed.startsWith('## ')) {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      htmlParts.push(`<h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1.15rem;color:#1e3a8a;margin:1.5rem 0 0.75rem 0;">${parseBold(trimmed.slice(3))}</h2>`);
+      return;
+    }
+    if (trimmed.startsWith('# ')) {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      htmlParts.push(`<h1 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:#1e3a8a;margin:1.75rem 0 1rem 0;">${parseBold(trimmed.slice(2))}</h1>`);
+      return;
+    }
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      if (!inList) { htmlParts.push('<ul style="margin:0.5rem 0;padding-left:1.25rem;list-style-type:disc;">'); inList = true; }
+      htmlParts.push(`<li style="margin-bottom:0.3rem;">${parseBold(trimmed.slice(2))}</li>`);
+      return;
+    }
+    if (/^\d+\.\s+/.test(trimmed)) {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      htmlParts.push(`<p style="margin:0.4rem 0;padding-left:0.25rem;">${parseBold(line)}</p>`);
+      return;
+    }
+    if (trimmed === '') {
+      if (inList) { htmlParts.push('</ul>'); inList = false; }
+      return;
+    }
+    if (inList) { htmlParts.push('</ul>'); inList = false; }
+    htmlParts.push(`<p style="margin-bottom:0.75rem;line-height:1.5;text-align:justify;">${parseBold(line)}</p>`);
+  });
+
+  if (inList) htmlParts.push('</ul>');
+  return htmlParts.join('\n');
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PrintableReportPage() {
   const params = useParams();
   const sessionId = params.id;
@@ -32,394 +89,358 @@ export default function PrintableReportPage() {
     loadReport();
   }, [sessionId]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  /**
-   * Calculates victim ratio and formats to string, e.g. "15/504 (3%)"
-   */
-  const getRatioString = (value, total) => {
-    if (!total) return `${value}/0 (0%)`;
-    const percent = ((value / total) * 100).toFixed(0);
-    return `${value}/${total} (${percent}%)`;
-  };
-
-  /**
-   * Helper to parse and render raw Markdown text from Gemini AI LLM.
-   */
-  const renderMarkdown = (text) => {
-    if (!text) return null;
-
-    const parseBold = (str) => {
-      // Replace **text** with <strong>text</strong>
-      return str.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    };
-
-    return text.split('\n').map((line, idx) => {
-      const content = line.trim();
-      if (!content) return <div key={idx} className="h-1"></div>;
-
-      // Header ###
-      if (content.startsWith('###')) {
-        const clean = content.replace(/^###\s*/, '');
-        return (
-          <h5 key={idx} className="font-black text-xs text-blue-400 print:text-blue-700 uppercase tracking-widest mt-4 mb-1.5">
-            {clean}
-          </h5>
-        );
-      }
-
-      // Header ##
-      if (content.startsWith('##')) {
-        const clean = content.replace(/^##\s*/, '');
-        return (
-          <h4 key={idx} className="font-black text-xs text-slate-200 print:text-black uppercase tracking-wider mt-5 mb-2.5 border-b border-slate-800/80 print:border-slate-300 pb-1">
-            {clean}
-          </h4>
-        );
-      }
-
-      // List Item
-      if (content.startsWith('-') || content.startsWith('*')) {
-        const clean = content.replace(/^[-*]\s*/, '');
-        return (
-          <li
-            key={idx}
-            className="list-disc ml-4 text-[11px] text-slate-300 print:text-slate-800 leading-relaxed mt-1"
-            dangerouslySetInnerHTML={{ __html: parseBold(clean) }}
-          />
-        );
-      }
-
-      // Standard Paragraph
-      return (
-        <p
-          key={idx}
-          className="text-[11px] text-slate-350 print:text-slate-800 leading-relaxed mt-1.5"
-          dangerouslySetInnerHTML={{ __html: parseBold(content) }}
-        />
-      );
-    });
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#090d16] flex flex-col items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-3 text-slate-400 font-medium text-xs">Memformat Laporan Cetak...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Memformat Laporan Cetak...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#090d16] flex flex-col items-center justify-center p-4">
-        <div className="bg-red-950/40 border border-red-800 p-4 rounded-xl text-red-300 max-w-md text-center">
-          <p className="font-bold">Error</p>
-          <p className="text-xs mt-1">{error}</p>
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-bold mt-4">
-            <ArrowLeft className="w-3.5 h-3.5" /> Kembali ke Beranda
-          </Link>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '2rem', borderRadius: '0.5rem', textAlign: 'center', maxWidth: '400px' }}>
+          <p style={{ fontWeight: 700, color: '#dc2626' }}>Error</p>
+          <p style={{ fontSize: '0.875rem', color: '#475569', marginTop: '0.5rem' }}>{error}</p>
+          <a href="/" style={{ display: 'inline-block', marginTop: '1rem', color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600 }}>← Kembali ke Beranda</a>
         </div>
       </div>
     );
   }
 
   const { session, clusters, totals } = data;
+  const printDate = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const priorityColor = (p) => p === 'red' ? '#ef4444' : p === 'yellow' ? '#eab308' : '#10b981';
+  const severityColor = (s) => s === 'berat' ? '#ef4444' : s === 'sedang' ? '#eab308' : s === 'ringan' ? '#10b981' : '#94a3b8';
+  const photoBadgeStyle = (severity) => {
+    if (severity === 'berat') return { background: '#fef2f2', color: '#dc2626' };
+    if (severity === 'sedang') return { background: '#fefce8', color: '#ca8a04' };
+    if (severity === 'ringan') return { background: '#f0fdf4', color: '#16a34a' };
+    return { background: '#f1f5f9', color: '#64748b' };
+  };
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 print:bg-white print:text-black">
-      {/* Top action bar - hidden in print */}
-      <div className="max-w-4xl mx-auto flex justify-between items-center mb-6 print:hidden">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Kembali ke Beranda
-        </Link>
-        <button
-          onClick={handlePrint}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/25"
-        >
-          <Printer className="w-4 h-4" /> Cetak Laporan (PDF)
-        </button>
-      </div>
+    <>
+      {/* Google Fonts + print styles */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; line-height: 1.5; padding: 2rem; }
+        @media print {
+          body { background: #ffffff; padding: 0; color: #000; }
+          .report-wrapper { box-shadow: none; padding: 0; max-width: 100%; }
+          .action-bar { display: none !important; }
+          .print-footer { display: block !important; }
+          .cluster-block { page-break-inside: avoid; }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .reports-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
+        .reports-table th, .reports-table td { border: 1px solid #cbd5e1; padding: 0.75rem; text-align: left; vertical-align: top; }
+        .reports-table th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+        .btn-action { display: inline-flex; align-items: center; gap: 0.5rem; background: #3b82f6; color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.875rem; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+        .btn-action:hover { background: #1e3a8a; }
+        .btn-back { background: #64748b; }
+        .btn-back:hover { background: #475569; }
+        .sar-list { margin-top: 0.25rem; padding-left: 1.25rem; font-size: 0.8rem; list-style-type: decimal; }
+        .sar-list li { margin-bottom: 0.3rem; }
+        .photo-thumbnail-container { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+        .photo-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; background: #f8fafc; width: 120px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .photo-card img { width: 100%; height: 80px; object-fit: cover; display: block; }
+        .photo-card-info { padding: 0.35rem 0.5rem; font-size: 0.7rem; }
+        .photo-card-badge { display: inline-block; font-weight: 700; font-size: 0.65rem; text-transform: uppercase; padding: 0.1rem 0.35rem; border-radius: 0.25rem; }
+      `}</style>
 
-      {/* Main Report Container */}
-      <div className="max-w-4xl mx-auto bg-slate-800/40 border border-slate-700/50 rounded-3xl p-8 print:p-0 print:border-none print:bg-white print:shadow-none shadow-2xl">
+      <div className="report-wrapper" style={{ maxWidth: '1000px', margin: '0 auto', background: '#ffffff', padding: '3rem', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1)' }}>
 
-        {/* Header */}
-        <div className="border-b border-slate-700 pb-6 mb-6 print:border-black flex flex-col sm:flex-row justify-between items-start gap-4">
+        {/* ── Action Bar ── */}
+        <div className="action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '2px solid #cbd5e1' }}>
+          <a href="/" className="btn-action btn-back">← Kembali ke Dashboard</a>
+          <button onClick={() => window.print()} className="btn-action">🖨 Cetak / Ekspor PDF</button>
+        </div>
+
+        {/* ── Report Header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', gap: '2rem', flexWrap: 'wrap' }}>
           <div>
-            <span className="text-[10px] font-bold tracking-widest text-blue-400 uppercase print:text-blue-600">
-              LAPORAN RESMI KLASTER SPASIAL & REKOMENDASI SAR
-            </span>
-            <h1 className="text-2xl font-black text-white mt-1 print:text-black">
-              SAPULIDIKU KEBENCANAAN
+            <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: '2rem', color: '#1e3a8a', marginBottom: '0.5rem' }}>
+              SAPULIDIKU
             </h1>
-            <p className="text-xs text-slate-400 mt-1 print:text-slate-600 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              Periode Laporan: {session.start_date} s/d {session.end_date}
-            </p>
+            <p style={{ color: '#475569', fontSize: '0.95rem' }}>Sistem Informasi Pelaporan &amp; Pemetaan Klaster Bencana Nasional</p>
+            <p style={{ fontWeight: 600, marginTop: '0.25rem', color: '#475569', fontSize: '0.95rem' }}>Laporan Komprehensif Sesi Analisis Klaster Spasial</p>
           </div>
-          <div className="text-right sm:text-right text-xs">
-            <span className="text-slate-400 font-semibold block print:text-slate-600">Wilayah Provinsi</span>
-            <span className="font-extrabold text-white text-sm print:text-black">{session.province}</span>
-          </div>
-        </div>
-
-        {/* Aggregate Stats Section */}
-        <div className="mb-8">
-          <h3 className="font-extrabold text-sm text-slate-300 uppercase tracking-wider mb-3 print:text-black flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-blue-400 print:text-blue-600" />
-            1. Ringkasan Dampak Kebencanaan Spasial
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800 print:bg-slate-100 print:border-black">
-            <div className="text-center">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">Total Klaster</span>
-              <span className="text-lg font-black text-white mt-0.5 block print:text-black">{clusters.length}</span>
-            </div>
-            <div className="text-center border-l border-slate-800 print:border-slate-300">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">Total Laporan</span>
-              <span className="text-lg font-black text-white mt-0.5 block print:text-black">{totals.totalReports}</span>
-            </div>
-            <div className="text-center border-l border-slate-800 print:border-slate-300">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">💀 Fatalities</span>
-              <span className="text-lg font-black text-red-400 mt-0.5 block print:text-black">{totals.totalFatalities}</span>
-            </div>
-            <div className="text-center border-l border-slate-800 print:border-slate-300">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">🤕 Luka-Luka</span>
-              <span className="text-lg font-black text-yellow-400 mt-0.5 block print:text-black">{totals.totalInjured}</span>
-            </div>
-            <div className="text-center border-l border-slate-800 print:border-slate-300">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">🔍 Hilang</span>
-              <span className="text-lg font-black text-amber-500 mt-0.5 block print:text-black">{totals.totalMissing}</span>
-            </div>
-            <div className="text-center border-l border-slate-800 print:border-slate-300">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase print:text-slate-600">⛺ Pengungsi</span>
-              <span className="text-lg font-black text-blue-400 mt-0.5 block print:text-black">{totals.totalEvacuees}</span>
-            </div>
+          <div style={{ textAlign: 'right', fontSize: '0.875rem', color: '#475569' }}>
+            <table style={{ borderCollapse: 'collapse', marginTop: '0.5rem' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '0.25rem 0.5rem', fontWeight: 600, color: '#0f172a' }}>ID Sesi</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>: #{session.id}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.25rem 0.5rem', fontWeight: 600, color: '#0f172a' }}>Provinsi</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>: {session.province || '-'}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.25rem 0.5rem', fontWeight: 600, color: '#0f172a' }}>Algoritma</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>: {session.algorithm?.toUpperCase()}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.25rem 0.5rem', fontWeight: 600, color: '#0f172a' }}>Rentang Data</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>: {session.start_date} - {session.end_date}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.25rem 0.5rem', fontWeight: 600, color: '#0f172a' }}>Tanggal Cetak</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>: {printDate} WIB</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Algorithm Analytics details */}
-        <div className="mb-8">
-          <h3 className="font-extrabold text-sm text-slate-300 uppercase tracking-wider mb-3 print:text-black flex items-center gap-1.5">
-            <Activity className="w-4 h-4 text-blue-400 print:text-blue-600" />
-            2. Analitik Kinerja Algoritma Klaster
-          </h3>
-
-          <div className="grid grid-cols-3 gap-4 text-xs bg-slate-900/40 p-4 rounded-xl border border-slate-800/80 print:bg-slate-50 print:border-black">
-            <div>
-              <span className="text-slate-400 font-semibold block print:text-slate-600">Model Algoritma:</span>
-              <span className="font-bold text-white uppercase print:text-black">{session.algorithm}</span>
+        {/* ── Cumulative Stats ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '2.5rem' }}>
+          {[
+            { num: totals.totalReports, label: 'Titik Laporan', color: '#1e3a8a' },
+            { num: totals.totalFatalities, label: 'Meninggal', color: '#ef4444' },
+            { num: totals.totalInjured, label: 'Luka-Luka', color: '#eab308' },
+            { num: totals.totalMissing, label: 'Hilang', color: '#64748b' },
+            { num: totals.totalEvacuees, label: 'Mengungsi', color: '#10b981' },
+          ].map((s) => (
+            <div key={s.label} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '1rem', borderRadius: '0.375rem', textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.5rem', fontWeight: 700, color: s.color, marginBottom: '0.25rem' }}>{s.num}</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569' }}>{s.label}</div>
             </div>
-            <div>
-              <span className="text-slate-400 font-semibold block print:text-slate-600">Silhouette Score:</span>
-              <span className="font-bold text-green-400 print:text-black">{session.silhouette_score !== null ? session.silhouette_score.toFixed(6) : '-'}</span>
-            </div>
-            <div>
-              <span className="text-slate-400 font-semibold block print:text-slate-600">Davies-Bouldin Index:</span>
-              <span className="font-bold text-slate-200 print:text-black">{session.davies_bouldin_index !== null ? session.davies_bouldin_index.toFixed(6) : '-'}</span>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Detailed Cluster Listing */}
-        <div className="mb-8">
-          <h3 className="font-extrabold text-sm text-slate-300 uppercase tracking-wider mb-4 print:text-black">
-            3. Daftar Detail Klaster Spasial Kejadian
-          </h3>
+        {/* ── Metrics Evaluasi ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2.5rem', background: '#fafafa', border: '1px solid #cbd5e1', borderRadius: '0.375rem', padding: '1rem' }}>
+          {[
+            { title: 'Silhouette Score', value: session.silhouette_score !== null ? parseFloat(session.silhouette_score).toFixed(4) : 'N/A' },
+            { title: 'Davies-Bouldin Index', value: session.davies_bouldin_index !== null ? parseFloat(session.davies_bouldin_index).toFixed(4) : 'N/A' },
+            { title: 'Calinski-Harabasz Index', value: session.calinski_harabasz_index !== null ? parseFloat(session.calinski_harabasz_index).toFixed(2) : 'N/A' },
+          ].map((m) => (
+            <div key={m.title} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#475569' }}>{m.title}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>{m.value}</div>
+            </div>
+          ))}
+        </div>
 
-          <div className="space-y-8">
-            {clusters.map((cluster, cIdx) => (
-              <div key={cluster.id} className="border border-slate-700/80 rounded-2xl overflow-hidden print:border-black print:break-inside-avoid">
+        {/* ── Cluster Details Section ── */}
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.35rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '1.5rem', borderBottom: '2px solid #1e3a8a', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          📂 Detail Informasi per Klaster Spasial
+        </h2>
+
+        {clusters.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: '#475569', border: '1px dashed #cbd5e1', borderRadius: '0.5rem' }}>
+            <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</p>
+            <p>Tidak ada klaster yang terbentuk pada sesi analisis ini.</p>
+          </div>
+        ) : (
+          clusters.map((cluster) => {
+            const pColor = priorityColor(cluster.priority_level);
+            const badgeBg = cluster.priority_level === 'red' ? '#ef4444' : cluster.priority_level === 'yellow' ? '#eab308' : '#10b981';
+            const badgeText = cluster.priority_level === 'yellow' ? '#000' : '#fff';
+
+            return (
+              <div key={cluster.id} className="cluster-block" style={{ marginBottom: '3rem', border: '1px solid #cbd5e1', borderRadius: '0.5rem', overflow: 'hidden', background: '#ffffff' }}>
+
                 {/* Cluster Header */}
-                <div className={`p-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 print:border-black ${cluster.priority_level === 'red' ? 'bg-red-950/20' :
-                    cluster.priority_level === 'yellow' ? 'bg-yellow-950/20' :
-                      'bg-green-950/20'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-3.5 h-3.5 rounded-full inline-block ${cluster.priority_level === 'red' ? 'bg-red-500' :
-                        cluster.priority_level === 'yellow' ? 'bg-yellow-500' :
-                          'bg-green-500'
-                      }`}></span>
-                    <h4 className="font-black text-slate-100 text-sm print:text-black">
-                      Klaster: {cluster.name}
-                    </h4>
+                <div style={{ background: '#f8fafc', padding: '1.25rem 1.5rem', borderBottom: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '1.15rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ display: 'inline-block', width: '0.8rem', height: '0.8rem', borderRadius: '50%', background: pColor }} />
+                    {cluster.name}
                   </div>
-
-                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${cluster.priority_level === 'red' ? 'bg-red-900 text-red-200 print:bg-red-200 print:text-red-900' :
-                      cluster.priority_level === 'yellow' ? 'bg-yellow-900 text-yellow-200 print:bg-yellow-200 print:text-yellow-900' :
-                        'bg-green-900 text-green-200 print:bg-green-200 print:text-green-900'
-                    }`}>
-                    Prioritas {cluster.priority_level}
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', padding: '0.25rem 0.75rem', borderRadius: '9999px', background: badgeBg, color: badgeText }}>
+                    Prioritas: {cluster.priority_level}
                   </span>
                 </div>
 
-                {/* Cluster Stats (Centroid, Radius, reports count) */}
-                <div className="p-4 bg-slate-900/20 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs border-b border-slate-800 print:border-black">
-                  <div>
-                    <span className="text-slate-400 font-semibold block print:text-slate-600">Centroid Koordinat</span>
-                    <span className="font-semibold text-slate-200 print:text-black">
-                      {parseFloat(cluster.centroid_lat).toFixed(6)}, {parseFloat(cluster.centroid_long).toFixed(6)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-semibold block print:text-slate-600">Estimasi Radius</span>
-                    <span className="font-semibold text-slate-200 print:text-black">
-                      {cluster.radius_meter ? `${cluster.radius_meter.toFixed(0)} meter` : 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-semibold block print:text-slate-600">Jumlah Laporan</span>
-                    <span className="font-bold text-slate-200 print:text-black">{cluster.total_reports} Laporan</span>
-                  </div>
+                <div style={{ padding: '1.5rem' }}>
 
-                  {/* Victim ratios row */}
-                  <div className="col-span-2 sm:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-800/40 print:border-slate-300">
-                    <div>
-                      <span className="text-slate-400 font-semibold block print:text-slate-600">Meninggal (Rasio)</span>
-                      <span className="font-bold text-red-400 print:text-black">
-                        💀 {getRatioString(cluster.total_fatalities, totals.totalFatalities)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 font-semibold block print:text-slate-600">Luka-Luka (Rasio)</span>
-                      <span className="font-bold text-yellow-400 print:text-black">
-                        🤕 {getRatioString(cluster.total_injured, totals.totalInjured)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 font-semibold block print:text-slate-600">Hilang (Rasio)</span>
-                      <span className="font-bold text-amber-500 print:text-black">
-                        🔍 {getRatioString(cluster.total_missing, totals.totalMissing)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 font-semibold block print:text-slate-600">Mengungsi (Rasio)</span>
-                      <span className="font-bold text-blue-400 print:text-black">
-                        ⛺ {getRatioString(cluster.total_evacuees, totals.totalEvacuees)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI recommendation if generated - rendered as structured Markdown */}
-                {cluster.ai_recommendation && (
-                  <div className="p-4 bg-blue-950/20 border-b border-slate-800/80 text-xs leading-relaxed text-slate-350 print:bg-slate-100 print:border-black print:text-black">
-                    <span className="font-extrabold text-[10px] text-blue-400 uppercase block mb-2 print:text-blue-700 tracking-wider">
-                      Rekomendasi AI Penyelamatan (LLM):
-                    </span>
-                    <div className="space-y-1">
-                      {renderMarkdown(cluster.ai_recommendation)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Reports contained inside */}
-                <div className="p-4 space-y-4">
-                  <h5 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest print:text-black mb-2">Daftar Rincian Laporan Klaster</h5>
-
-                  {cluster.reports.map((report, rIdx) => (
-                    <div key={report.id} className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 print:border-slate-300 print:bg-white text-xs space-y-3">
-                      <div className="flex justify-between items-start flex-wrap gap-2">
-                        <div>
-                          <span className="font-bold text-slate-100 text-sm print:text-black">{report.reporter_name}</span>
-                          <span className="text-[10px] text-slate-400 ml-2 font-medium">#{report.id}</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 print:bg-slate-200 print:text-slate-850">
-                          {report.category === 'building_damage' ? 'Kerusakan Bangunan' : 'Kerusakan Infrastruktur'}
-                        </span>
+                  {/* Cluster Meta Grid - 4 cols */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                    {[
+                      { label: 'Titik Laporan', val: cluster.total_reports },
+                      { label: 'Radius (Kilometer)', val: cluster.radius_meter ? `${(cluster.radius_meter / 1000).toFixed(1).replace('.', ',')} km` : 'N/A' },
+                      { label: 'Centroid Lintang', val: parseFloat(cluster.centroid_lat).toFixed(6) },
+                      { label: 'Centroid Bujur', val: parseFloat(cluster.centroid_long).toFixed(6) },
+                    ].map((item) => (
+                      <div key={item.label} style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: '#475569', marginBottom: '0.25rem' }}>{item.label}</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{item.val}</div>
                       </div>
+                    ))}
+                  </div>
 
-                      <p className="text-slate-350 print:text-slate-700 leading-relaxed italic">
-                        "{report.description || 'Tidak ada deskripsi kejadian.'}"
-                      </p>
-
-                      {/* Render photos with AI severity badge and confidence score */}
-                      {report.photos && report.photos.length > 0 && (
-                        <div className="flex flex-wrap gap-3 py-1.5">
-                          {report.photos.map((photo, pIdx) => (
-                            <div key={pIdx} className="border border-slate-800/80 print:border-slate-300 rounded-xl overflow-hidden bg-slate-950/40 print:bg-slate-100 w-28 flex flex-col flex-shrink-0 shadow">
-                              <div className="aspect-video w-full relative">
-                                <img
-                                  src={photo.url.startsWith('http') ? photo.url : `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000'}${photo.url}`}
-                                  alt="Dampak kerusakan"
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div className="p-1.5 text-[9px] text-center space-y-0.5">
-                                <div className="font-bold text-slate-450 print:text-slate-700 flex justify-between items-center text-[8px]">
-                                  <span>AI Deteksi:</span>
-                                  <span className={`px-1 rounded font-black text-[7px] uppercase ${photo.severity === 'berat' ? 'bg-red-950 text-red-400 print:bg-red-100 print:text-red-700' :
-                                      photo.severity === 'sedang' ? 'bg-yellow-950 text-yellow-400 print:bg-yellow-100 print:text-yellow-700' :
-                                        photo.severity === 'ringan' ? 'bg-green-950 text-green-400 print:bg-green-100 print:text-green-700' :
-                                          'bg-slate-800 text-slate-400'
-                                    }`}>
-                                    {photo.severity || 'unknown'}
-                                  </span>
-                                </div>
-                                {photo.confidence_score !== null && (
-                                  <div className="text-slate-500 font-semibold text-[8px] flex justify-between items-center pt-0.5 border-t border-slate-900/30">
-                                    <span>Confidence:</span>
-                                    <span className="text-slate-300 print:text-slate-900">{photo.confidence_score.toFixed(2)}%</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-900/50 p-2 rounded border border-slate-800 text-[10px] print:bg-slate-50 print:border-slate-300">
-                        <div>💀 Korban Meninggal: <span className="font-bold text-slate-200 print:text-black">{report.fatalities}</span></div>
-                        <div>🤕 Korban Luka-Luka: <span className="font-bold text-slate-200 print:text-black">{report.injured}</span></div>
-                        <div>🔍 Orang Hilang: <span className="font-bold text-slate-200 print:text-black">{report.missing}</span></div>
-                        <div>⛺ Jumlah Pengungsi: <span className="font-bold text-slate-200 print:text-black">{report.evacuees}</span></div>
-                      </div>
-
-                      {/* SAR Recommendations list */}
-                      {report.recommendations && report.recommendations.length > 0 && (
-                        <div className="pt-2 border-t border-slate-800/80 print:border-slate-200">
-                          <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Daftar Rekomendasi Alokasi Penyelamatan Posko SAR:</span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                            {report.recommendations.slice(0, 3).map((rec, recIdx) => (
-                              <div key={recIdx} className="bg-slate-800/20 p-2 rounded border border-slate-800/50 print:border-slate-200 text-[10px] flex justify-between items-center">
-                                <div>
-                                  <span className="font-extrabold text-blue-400 print:text-blue-700">{recIdx + 1}. {rec.sar_base_name}</span>
-                                </div>
-                                <div className="font-semibold text-slate-300 print:text-black">
-                                  Jarak: {rec.distance_km.toFixed(1)} km
-                                </div>
-                              </div>
-                            ))}
+                  {/* Dampak Korban Klaster */}
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', margin: '1.25rem 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    👥 Dampak Korban Klaster &amp; Persentase Kontribusi Sesi
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                    {[
+                      { label: 'Meninggal', val: cluster.total_fatalities, total: totals.totalFatalities, color: '#ef4444' },
+                      { label: 'Luka-Luka', val: cluster.total_injured, total: totals.totalInjured, color: '#eab308' },
+                      { label: 'Hilang', val: cluster.total_missing, total: totals.totalMissing, color: '#64748b' },
+                      { label: 'Mengungsi', val: cluster.total_evacuees, total: totals.totalEvacuees, color: '#10b981' },
+                    ].map((item) => {
+                      const pct = item.total > 0 ? Math.round((item.val / item.total) * 100) : 0;
+                      return (
+                        <div key={item.label} style={{ background: '#f8fafc', padding: '0.75rem 0.75rem 0.75rem 1rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0', borderLeft: `3px solid ${item.color}`, textAlign: 'left' }}>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: item.color, marginBottom: '0.25rem' }}>{item.label}</div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>
+                            {item.val}/{item.total}
+                            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: '#475569', marginLeft: '0.25rem' }}>({pct}%)</span>
                           </div>
                         </div>
-                      )}
+                      );
+                    })}
+                  </div>
+
+                  {/* AI Recommendation Box */}
+                  {cluster.ai_recommendation && (
+                    <div style={{ backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '0.375rem', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#6d28d9', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        ✨ Analisis Taktis &amp; Rekomendasi AI
+                      </div>
+                      <div
+                        style={{ fontSize: '0.875rem', color: '#3730a3', lineHeight: 1.6 }}
+                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(cluster.ai_recommendation) }}
+                      />
                     </div>
-                  ))}
+                  )}
+
+                  {/* Reports List Table */}
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    📋 Sebaran Titik Pelaporan Bencana
+                  </div>
+
+                  <table className="reports-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '4%' }}>No</th>
+                        <th style={{ width: '22%' }}>Pelapor &amp; Kontak</th>
+                        <th style={{ width: '34%' }}>Detail Laporan &amp; Kerusakan</th>
+                        <th style={{ width: '16%' }}>Tingkat Bahaya &amp; Dampak Korban</th>
+                        <th style={{ width: '24%' }}>Rekomendasi SAR Terdekat</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cluster.reports.map((report, rIdx) => (
+                        <tr key={report.id}>
+                          {/* No */}
+                          <td>{rIdx + 1}</td>
+
+                          {/* Pelapor & Kontak */}
+                          <td>
+                            <div style={{ marginBottom: '0.25rem' }}>
+                              <strong>{report.reporter_name}</strong>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.15rem' }}>
+                              📞 {report.reporter_phone || '-'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.25rem' }}>
+                              📍 {report.reporter_address || 'Alamat tidak diisi'}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', marginTop: '0.4rem' }}>
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}
+                              >
+                                🗺 Lihat Peta Presisi
+                              </a>
+                            </div>
+                          </td>
+
+                          {/* Detail Laporan & Foto */}
+                          <td>
+                            <div style={{ fontWeight: 600, textTransform: 'capitalize', marginBottom: '0.25rem' }}>
+                              {report.category?.replace(/_/g, ' ')}
+                            </div>
+                            <p style={{ color: '#475569', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                              {report.description || 'Tidak ada deskripsi detail.'}
+                            </p>
+
+                            {/* Photos - menggunakan tampilan lama: card dengan AI badge & confidence */}
+                            {report.photos && report.photos.length > 0 && (
+                              <div className="photo-thumbnail-container">
+                                {report.photos.map((photo, pIdx) => {
+                                  const imgSrc = photo.url.startsWith('http') ? photo.url : `${apiUrl}${photo.url}`;
+                                  const badgeStyle = photoBadgeStyle(photo.severity);
+                                  return (
+                                    <div key={pIdx} className="photo-card">
+                                      <img src={imgSrc} alt="Bukti Lapangan" title={`Kerusakan: ${photo.severity || 'unknown'}`} />
+                                      <div className="photo-card-info">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.15rem' }}>
+                                          <span style={{ color: '#64748b', fontSize: '0.65rem' }}>AI Deteksi:</span>
+                                          <span className="photo-card-badge" style={badgeStyle}>{photo.severity || 'unknown'}</span>
+                                        </div>
+                                        {photo.confidence_score !== null && photo.confidence_score !== undefined && (
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#64748b', borderTop: '1px solid #e2e8f0', paddingTop: '0.15rem' }}>
+                                            <span>Conf:</span>
+                                            <span style={{ fontWeight: 600, color: '#0f172a' }}>{(photo.confidence_score * 100).toFixed(1)}%</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Tingkat Bahaya & Dampak */}
+                          <td>
+                            <div style={{ fontWeight: 700, textTransform: 'uppercase', color: severityColor(report.overall_severity), marginBottom: '0.5rem' }}>
+                              {report.overall_severity}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#475569' }}>
+                              <div>Meninggal: <strong>{report.fatalities}</strong></div>
+                              <div>Luka: <strong>{report.injured}</strong></div>
+                              <div>Hilang: <strong>{report.missing}</strong></div>
+                              <div>Evakuasi: <strong>{report.evacuees}</strong></div>
+                            </div>
+                          </td>
+
+                          {/* Rekomendasi SAR - 3 terdekat */}
+                          <td>
+                            {report.recommendations && report.recommendations.length > 0 ? (
+                              <ol className="sar-list">
+                                {report.recommendations.slice(0, 3).map((rec, recIdx) => (
+                                  <li key={recIdx}>
+                                    {rec.sar_base_name} ({parseFloat(rec.distance_km).toFixed(2)} km)
+                                  </li>
+                                ))}
+                              </ol>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: '#475569', fontStyle: 'italic' }}>Tidak ada posko penunjang</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            );
+          })
+        )}
 
-        {/* Signatures / Official block */}
-        <div className="mt-16 pt-8 border-t border-slate-700 print:border-black grid grid-cols-2 text-center text-xs print:break-inside-avoid">
-          <div>
-            <p className="text-slate-400 print:text-slate-600">Dibuat Otomatis Oleh:</p>
-            <p className="font-black text-white mt-8 print:text-black">SISTEM SAPULIDIKU</p>
-            <p className="text-[10px] text-slate-500">Kecerdasan Spasial AI</p>
-          </div>
-          <div>
-            <p className="text-slate-400 print:text-slate-600">Disetujui Oleh,</p>
-            <p className="font-black text-white mt-8 print:text-black">KEPALA POSKO SAR PROVINSI</p>
-            <p className="text-[10px] text-slate-500">Tanda Tangan Elektronik Aktif</p>
-          </div>
+        {/* Print Footer */}
+        <div className="print-footer" style={{ display: 'none', textAlign: 'center', fontSize: '0.75rem', color: '#475569', marginTop: '3rem', borderTop: '1px solid #cbd5e1', paddingTop: '1rem' }}>
+          <p>Laporan ini dibuat dan diunduh secara otomatis dari sistem SIG Sapulidiku &copy; {new Date().getFullYear()}.</p>
+          <p>Koordinasi SAR Terpadu - Mitigasi Cepat, Respon Presisi.</p>
         </div>
 
       </div>
-    </div>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -104,7 +104,7 @@ export default function InteractiveMap({ clusters = [], sarBases = [] }) {
           const circleColor = clusterColors[cluster.priority_level] || clusterColors.unknown;
 
           return (
-            <React.Fragment key={`cluster-group-${cluster.id}`}>
+            <div key={`cluster-group-${cluster.id}`}>
               {/* Cluster boundary circle */}
               {cluster.centroid_lat && cluster.centroid_long && (
                 <Circle
@@ -120,12 +120,12 @@ export default function InteractiveMap({ clusters = [], sarBases = [] }) {
                 />
               )}
 
-              {/* Render each individual report marker - colored by overall_severity */}
+              {/* Render each report in the cluster - color by overall_severity */}
               {cluster.reports?.map((report) => {
                 const markerColor = severityColors[report.overall_severity] || severityColors.unknown;
 
                 return (
-                  <React.Fragment key={`report-layer-${report.id}`}>
+                  <div key={`report-layer-${report.id}`}>
                     <Marker
                       position={[parseFloat(report.latitude), parseFloat(report.longitude)]}
                       icon={createCustomIcon(markerColor)}
@@ -215,10 +215,10 @@ export default function InteractiveMap({ clusters = [], sarBases = [] }) {
                         }}
                       />
                     )}
-                  </React.Fragment>
+                  </div>
                 );
               })}
-            </React.Fragment>
+            </div>
           );
         })}
       </MapContainer>
