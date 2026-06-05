@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { publicApi } from '../lib/api';
+import teamMembers from '../../profile.json';
 
 // Dynamically import map (no SSR)
 const InteractiveMap = dynamic(() => import('../components/MapContainer'), { ssr: false });
@@ -128,11 +129,13 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo */}
           <a href="#" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-shadow">
-              S
-            </div>
-            <span className="font-black text-xl tracking-tight bg-gradient-to-r from-white via-slate-100 to-blue-400 bg-clip-text text-transparent" style={{ fontFamily: 'system-ui' }}>
-              Sapulidiku
+            <img
+              src="/logo.png"
+              alt="Sapulidiku Logo"
+              className="h-14 w-auto object-contain drop-shadow-lg group-hover:drop-shadow-[0_0_14px_rgba(99,102,241,0.6)] transition-all duration-300"
+            />
+            <span className="hidden sm:block text-xs font-semibold text-slate-400 group-hover:text-slate-200 transition-colors tracking-wide leading-tight">
+              www.sapulidiku.space
             </span>
           </a>
 
@@ -181,7 +184,7 @@ export default function HomePage() {
 
         {/* Subheading */}
         <p className="text-lg sm:text-xl text-slate-400 max-w-2xl leading-relaxed mb-12">
-          Sapulidiku mengintegrasikan pelaporan masyarakat secara <span className="text-slate-200 font-semibold">real-time</span> dengan algoritma pemetaan AI untuk mengelompokkan area kerawanan bencana serta merekomendasikan markas SAR terdekat demi penanganan cepat.
+          <span className="text-slate-200 font-semibold">SAPULIDI</span> adalah sebuah platform mitigasi dan penanggulangan bencana kolaboratif terintegrasi. Sistem ini dirancang untuk mempercepat respon darurat kebencanaan dengan memanfaatkan kecerdasan buatan (AI) untuk mengotomatisasi penilaian tingkat keparahan dampak bencana dari laporan warga, melakukan klasterisasi wilayah bencana secara spasial untuk mengidentifikasi hotspot terdampak, serta menyusun rekomendasi alokasi tim penyelamat (Search and Rescue/SAR) terdekat secara dinamis.
         </p>
 
         {/* CTA Buttons */}
@@ -202,13 +205,6 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-500 text-xs">
-          <span>Gulir ke bawah</span>
-          <div className="w-5 h-8 border border-slate-600 rounded-full flex items-start justify-center p-1">
-            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDuration: '1.5s' }}></div>
-          </div>
-        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
@@ -225,8 +221,8 @@ export default function HomePage() {
                 <svg className="w-10 h-10 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ stroke: 'url(#blueGrad)' }}>
                   <defs>
                     <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#60a5fa"/>
-                      <stop offset="100%" stopColor="#818cf8"/>
+                      <stop offset="0%" stopColor="#60a5fa" />
+                      <stop offset="100%" stopColor="#818cf8" />
                     </linearGradient>
                   </defs>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -339,20 +335,18 @@ export default function HomePage() {
                 className={`group relative bg-[#131a2c]/50 border border-[#1e3050] rounded-2xl p-7 hover:bg-[#131a2c]/80 hover:border-${step.color}-500/30 hover:-translate-y-2 transition-all duration-300`}
               >
                 {/* Step number bubble */}
-                <div className={`absolute -top-5 left-7 w-10 h-10 bg-gradient-to-br ${
-                  step.color === 'blue' ? 'from-blue-500 to-blue-700' :
+                <div className={`absolute -top-5 left-7 w-10 h-10 bg-gradient-to-br ${step.color === 'blue' ? 'from-blue-500 to-blue-700' :
                   step.color === 'indigo' ? 'from-indigo-500 to-indigo-700' :
-                  step.color === 'green' ? 'from-emerald-500 to-emerald-700' :
-                  'from-amber-500 to-amber-600'
-                } rounded-xl flex items-center justify-center text-white font-black text-base shadow-lg`}>
+                    step.color === 'green' ? 'from-emerald-500 to-emerald-700' :
+                      'from-amber-500 to-amber-600'
+                  } rounded-xl flex items-center justify-center text-white font-black text-base shadow-lg`}>
                   {step.num}
                 </div>
-                <div className={`mb-4 mt-2 ${
-                  step.color === 'blue' ? 'text-blue-400' :
+                <div className={`mb-4 mt-2 ${step.color === 'blue' ? 'text-blue-400' :
                   step.color === 'indigo' ? 'text-indigo-400' :
-                  step.color === 'green' ? 'text-emerald-400' :
-                  'text-amber-400'
-                }`}>
+                    step.color === 'green' ? 'text-emerald-400' :
+                      'text-amber-400'
+                  }`}>
                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     {step.icon}
                   </svg>
@@ -499,6 +493,113 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
+          CAPSTONE TEAM PROFILE SECTION
+      ═══════════════════════════════════════════════════════════ */}
+      <section id="team-profile" className="py-24 relative border-t border-[#1e3050]/50 bg-[#070b13]/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6">
+              Tim Pengembang
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-black tracking-tight mb-5" style={{ fontFamily: 'system-ui' }}>
+              <span className="bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">
+                Profil Tim Capstone
+              </span>
+            </h2>
+            <div className="bg-[#0f1626]/40 border border-[#1e3050]/65 p-6 rounded-2xl max-w-3xl mx-auto text-left md:text-center space-y-2 backdrop-blur-sm">
+              <p className="text-slate-400 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+                <span className="text-white">Coding Camp 2026 powered by DBS Foundation</span>
+              </p>
+              <p className="text-slate-400 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+                <span className="text-blue-400">Tim Capstone: CC26-PRU418</span>
+              </p>
+              <p className="text-slate-400 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+                <span className="text-slate-200">Tema: Inclusive & Resilient Communities</span>
+              </p>
+              <p className="text-slate-300 text-xs sm:text-sm font-semibold mt-1">
+                <span className="text-white bg-yellow-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">SAPULIDI: AI-Powered Damage Severity Clustering & Spatial Mapping for Disaster-Resilient Communities</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Members Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {teamMembers.map((member, idx) => (
+              <div
+                key={idx}
+                className="group relative bg-[#131a2c]/40 border border-[#1e3050] rounded-2xl p-6 text-center hover:bg-[#131a2c]/75 hover:border-blue-500/35 hover:-translate-y-1.5 transition-all duration-300 overflow-hidden shadow-xl"
+              >
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+                {/* Custom Gradient Avatar Placeholder */}
+                <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center relative overflow-hidden shadow-lg border border-slate-700/50 group-hover:border-blue-500/30 transition-all duration-300 mb-4">
+                  <div
+                    className="absolute inset-0 opacity-80"
+                    style={{
+                      background: `linear-gradient(135deg, ${member.fromColor} 0%, ${member.toColor} 100%)`
+                    }}
+                  />
+                  <div className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-white/10 blur-sm" />
+                  <div className="absolute -bottom-6 -left-6 w-14 h-14 rounded-full bg-black/20 blur-sm" />
+                  <span className="relative font-black text-xl tracking-wider" style={{ color: member.textColor }}>
+                    {member.initials}
+                  </span>
+                </div>
+
+                {/* Info */}
+                <h3 className="font-black text-white text-base mb-1 group-hover:text-blue-400 transition-colors" style={{ fontFamily: 'system-ui' }}>
+                  {member.name}
+                </h3>
+                <p className="text-xs font-bold text-slate-300 mb-1">{member.university}</p>
+                <p className="text-[11px] text-slate-500 font-semibold mb-5">{member.role}</p>
+
+                {/* Social media icons */}
+                <div className="flex items-center justify-center gap-3">
+                  <a
+                    href={member.socials.instagram}
+                    className="p-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-lg hover:border-pink-500/40 hover:bg-pink-950/15 transition-all duration-200"
+                    title="Instagram"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                  </a>
+                  <a
+                    href={member.socials.facebook}
+                    className="p-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-lg hover:border-blue-500/40 hover:bg-blue-950/15 transition-all duration-200"
+                    title="Facebook"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                  </a>
+                  <a
+                    href={member.socials.linkedin}
+                    className="p-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-lg hover:border-sky-500/40 hover:bg-sky-950/15 transition-all duration-200"
+                    title="LinkedIn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                  </a>
+                  <a
+                    href={member.socials.github}
+                    className="p-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-lg hover:border-slate-500/40 hover:bg-slate-750 transition-all duration-200"
+                    title="GitHub"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
           5. PROFESSIONAL FOOTER
       ═══════════════════════════════════════════════════════════ */}
       <footer className="bg-[#060911] border-t border-[#1e3050] pt-16 pb-8">
@@ -507,16 +608,15 @@ export default function HomePage() {
 
             {/* Brand Info */}
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg shadow-blue-500/30">
-                  S
-                </div>
-                <span className="font-black text-xl tracking-tight bg-gradient-to-r from-white to-blue-400 bg-clip-text text-transparent" style={{ fontFamily: 'system-ui' }}>
-                  Sapulidiku
-                </span>
+              <div className="flex items-center gap-2 mb-5">
+                <img
+                  src="/logo.png"
+                  alt="Sapulidiku Logo"
+                  className="h-28 w-auto object-contain drop-shadow-md"
+                />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-                Sistem Pelaporan &amp; Klasterisasi Bencana berbasis kecerdasan buatan untuk optimasi respons tim SAR Indonesia.
+                <b>SAPULIDI</b> yang melambangkan gotong royong masyarakat Indonesia hadir sebagai solusi end-to-end yang menggabungkan pelaporan masyarakat, klasifikasi kerusakan berbasis AI, pemetaan zona bencana, dan rekomendasi tim SAR terdekat.
               </p>
             </div>
 
@@ -544,7 +644,7 @@ export default function HomePage() {
             <div>
               <h4 className="font-black text-white text-sm uppercase tracking-widest mb-5">Teknologi</h4>
               <ul className="space-y-3">
-                {['Next.js 15 (Frontend)', 'Express.js (Backend)', 'Prisma ORM', 'Python FastAPI (ML)', 'Leaflet.js (Maps)', 'PostgreSQL / MySQL'].map((tech) => (
+                {['Next.js 15 (Frontend)', 'Express.js (Backend)', 'Prisma ORM', 'Python FastAPI (ML)', 'Leaflet.js (Maps)', 'MySQL'].map((tech) => (
                   <li key={tech} className="text-slate-400 text-sm font-medium flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
                     {tech}
@@ -557,8 +657,8 @@ export default function HomePage() {
 
           {/* Bottom bar */}
           <div className="border-t border-[#1e3050]/70 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <p>© {new Date().getFullYear()} Sapulidiku. Seluruh hak cipta dilindungi.</p>
-            <p className="text-slate-600">Ditenagai oleh Next.js, Express.js, Prisma &amp; Python ML Service</p>
+            <p>© {new Date().getFullYear()} www.sapulidiku.space Seluruh hak cipta dilindungi.</p>
+            <p className="text-slate-600">Powered by Next.js, Express.js, Prisma &amp; Python ML Service</p>
             <Link href="/admin/dashboard" className="text-slate-400 hover:text-blue-400 font-medium transition-colors">
               Dashboard Admin →
             </Link>

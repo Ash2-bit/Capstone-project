@@ -1,14 +1,23 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sapulidiku.space/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_URL && typeof window !== 'undefined') {
+  console.error(
+    '[api.js] NEXT_PUBLIC_API_URL tidak dikonfigurasi! ' +
+    'Pastikan file .env.local sudah ada SEBELUM menjalankan "npm run build". ' +
+    'Request akan dikirim ke URL yang salah.'
+  );
+}
 
 // Create Axios client instance
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL || 'http://127.0.0.1:5555',
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
 
 // Request interceptor to automatically attach token
 apiClient.interceptors.request.use(
@@ -47,6 +56,14 @@ export async function apiRequest(path, options = {}) {
   } catch (error) {
     let errorMessage = 'Terjadi kesalahan pada jaringan.';
     if (error.response) {
+      if (error.response.status === 401) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('sapulidiku_token');
+          localStorage.removeItem('sapulidiku_user');
+          window.location.href = '/login';
+          return { success: false, message: 'Sesi berakhir, mengalihkan...' };
+        }
+      }
       errorMessage = error.response.data?.message || `HTTP error! Status: ${error.response.status}`;
     } else if (error.message) {
       errorMessage = error.message;
@@ -118,6 +135,20 @@ export const adminApi = {
     body: data,
   }),
   deleteSession: (id) => apiRequest(`/api/admin/sessions/${id}`, {
+    method: 'DELETE',
+  }),
+
+  // Users
+  getUsers: () => apiRequest('/api/admin/users'),
+  createUser: (data) => apiRequest('/api/admin/users', {
+    method: 'POST',
+    body: data,
+  }),
+  updateUser: (id, data) => apiRequest(`/api/admin/users/${id}`, {
+    method: 'PUT',
+    body: data,
+  }),
+  deleteUser: (id) => apiRequest(`/api/admin/users/${id}`, {
     method: 'DELETE',
   }),
 };

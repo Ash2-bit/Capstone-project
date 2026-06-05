@@ -8,6 +8,7 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_har
 import math
 import time
 import os
+import asyncio
 from google import genai
 
 def get_env_var(var_name: str) -> Optional[str]:
@@ -33,7 +34,8 @@ def get_env_var(var_name: str) -> Optional[str]:
                 pass
     return None
 
-def call_gemini(prompt: str) -> str:
+def _call_gemini_sync(prompt: str) -> str:
+    """Synchronous Gemini API call — dijalankan di thread pool oleh asyncio.to_thread."""
     api_key = get_env_var("GEMINI_API_KEY")
     if not api_key:
         return "Error: GEMINI_API_KEY tidak ditemukan di environment atau file .env."
@@ -49,6 +51,11 @@ def call_gemini(prompt: str) -> str:
         return response.text
     except Exception as e:
         return f"Error memanggil Gemini API: {str(e)}"
+
+
+async def call_gemini(prompt: str) -> str:
+    """Async wrapper — menjalankan Gemini call di thread pool agar tidak memblokir event loop."""
+    return await asyncio.to_thread(_call_gemini_sync, prompt)
 
 app = FastAPI(title="Sapulidiku ML Clustering Service")
 
@@ -119,7 +126,7 @@ class ClusterResponse(BaseModel):
     recommendations: List[RecommendationResult]
 
 @app.post("/cluster", response_model=ClusterResponse)
-def process_clustering(request: ClusterRequest):
+async def process_clustering(request: ClusterRequest):
     start_time = time.time()
     
     reports = request.reports
@@ -202,6 +209,7 @@ def process_clustering(request: ClusterRequest):
 
     # 3. Build Spatial Clusters
     clusters = []
+    cluster_prompts = []  # Menyimpan prompt tiap klaster untuk di-fire secara concurrent
     unique_clusters = [l for l in unique_labels if l >= 0]
     
     for i, cluster_label in enumerate(unique_clusters):
@@ -246,7 +254,7 @@ def process_clustering(request: ClusterRequest):
         total_missing = sum(r.missing for r in cluster_reports)
         total_evacuees = sum(r.evacuees for r in cluster_reports)
         
-        # Generate AI analysis and recommendation
+        # Build AI prompt unik untuk klaster ini
         reports_details_list = []
         for idx, r in enumerate(cluster_reports, 1):
             category_str = "Kerusakan Bangunan" if r.category == "building_damage" else "Kerusakan Infrastruktur" if r.category == "infrastructure_damage" else r.category or "Lainnya"
@@ -258,7 +266,7 @@ def process_clustering(request: ClusterRequest):
                 f"   Deskripsi: {desc_str}"
             )
         reports_details = "\n\n".join(reports_details_list)
-        
+
         prompt = (
             f"Lakukan analisis kebencanaan secara taktis dan berikan rekomendasi operasional SAR "
             f"untuk klaster bencana berikut ini:\n\n"
@@ -281,8 +289,7 @@ def process_clustering(request: ClusterRequest):
             f"3. Pastikan jawaban disajikan secara terstruktur, profesional, padat, dan menggunakan Bahasa Indonesia yang baik dan benar."
         )
 
-        ai_recommendation = call_gemini(prompt)
-
+        # Simpan data klaster (tanpa AI dulu) beserta promptnya
         clusters.append(ClusterResult(
             name=cluster_name,
             priority_level=priority,
@@ -296,8 +303,9 @@ def process_clustering(request: ClusterRequest):
             total_evacuees=total_evacuees,
             report_ids=[r.id for r in cluster_reports],
             ai_prompt=prompt,
-            ai_recommendation=ai_recommendation
+            ai_recommendation=None  # Diisi setelah gather
         ))
+        cluster_prompts.append(prompt)
 
     # 4. Calculate SAR Recommendations (top 3 for each report)
     recommendations = []
@@ -319,6 +327,13 @@ def process_clustering(request: ClusterRequest):
                     distance_km=float(dist),
                     rank=rank
                 ))
+
+    # 4b. Fire semua Gemini API calls secara CONCURRENT (paralel), bukan sequential
+    # Waktu total = ~1× latency API, bukan N× latency
+    if cluster_prompts:
+        ai_results = await asyncio.gather(*[call_gemini(p) for p in cluster_prompts])
+        for cluster, ai_text in zip(clusters, ai_results):
+            cluster.ai_recommendation = ai_text
 
     processing_time_ms = int((time.time() - start_time) * 1000.0)
 

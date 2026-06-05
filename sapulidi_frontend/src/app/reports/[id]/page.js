@@ -173,7 +173,7 @@ export default function PrintableReportPage() {
             <p style={{ color: '#475569', fontSize: '0.95rem' }}>Sistem Informasi Pelaporan &amp; Pemetaan Klaster Bencana Nasional</p>
             <p style={{ fontWeight: 600, marginTop: '0.25rem', color: '#475569', fontSize: '0.95rem' }}>Laporan Komprehensif Sesi Analisis Klaster Spasial</p>
           </div>
-          <div style={{ textAlign: 'right', fontSize: '0.875rem', color: '#475569' }}>
+          <div style={{ textAlign: 'left', fontSize: '0.875rem', color: '#475569' }}>
             <table style={{ borderCollapse: 'collapse', marginTop: '0.5rem' }}>
               <tbody>
                 <tr>
@@ -385,7 +385,7 @@ export default function PrintableReportPage() {
                                         {photo.confidence_score !== null && photo.confidence_score !== undefined && (
                                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#64748b', borderTop: '1px solid #e2e8f0', paddingTop: '0.15rem' }}>
                                             <span>Conf:</span>
-                                            <span style={{ fontWeight: 600, color: '#0f172a' }}>{(photo.confidence_score * 100).toFixed(1)}%</span>
+                                            <span style={{ fontWeight: 600, color: '#0f172a' }}>{(photo.confidence_score ).toFixed(1)}%</span>
                                           </div>
                                         )}
                                       </div>

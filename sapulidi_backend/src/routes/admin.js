@@ -381,4 +381,114 @@ router.delete('/sessions/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// 5. USERS CRUD
+// ==========================================
+
+router.get('/users', async (req, res) => {
+  try {
+    const users = await prisma.users.findMany({
+      orderBy: { name: 'asc' },
+    });
+    res.json(serialize({ success: true, data: users }));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/users', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Nama, email, dan password wajib diisi.' });
+    }
+
+    const emailExists = await prisma.users.findUnique({ where: { email } });
+    if (emailExists) {
+      return res.status(400).json({ success: false, message: 'Email sudah terdaftar.' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const now = new Date();
+    const newUser = await prisma.users.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: 'admin',
+        created_at: now,
+        updated_at: now,
+      },
+    });
+
+    res.json(serialize({
+      success: true,
+      data: newUser,
+      message: 'User berhasil ditambahkan.',
+    }));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/users/:id', async (req, res) => {
+  try {
+    const id = BigInt(req.params.id);
+    const { name, email, password } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Nama dan email wajib diisi.' });
+    }
+
+    const emailExists = await prisma.users.findFirst({
+      where: {
+        email,
+        NOT: { id },
+      },
+    });
+    if (emailExists) {
+      return res.status(400).json({ success: false, message: 'Email sudah digunakan oleh user lain.' });
+    }
+
+    const updateData = {
+      name,
+      email,
+      updated_at: new Date(),
+    };
+
+    if (password && password.trim() !== '') {
+      updateData.password = bcrypt.hashSync(password, 10);
+    }
+
+    const updated = await prisma.users.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json(serialize({
+      success: true,
+      data: updated,
+      message: 'User berhasil diperbarui.',
+    }));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const id = BigInt(req.params.id);
+
+    // Prevent self-deletion
+    if (req.user && req.user.id === id.toString()) {
+      return res.status(400).json({ success: false, message: 'Anda tidak dapat menghapus akun Anda sendiri.' });
+    }
+
+    await prisma.users.delete({ where: { id } });
+    res.json({ success: true, message: 'User berhasil dihapus.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

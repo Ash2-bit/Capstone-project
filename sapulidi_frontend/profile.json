@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Ajis Saputra Hidayah",
+    "university": "Universitas Bengkulu",
+    "role": "Full-Stack Web Developer",
+    "initials": "ASH",
+    "fromColor": "#3b82f6",
+    "toColor": "#1d4ed8",
+    "textColor": "#eff6ff",
+    "socials": {
+      "instagram": "#",
+      "facebook": "#",
+      "linkedin": "#",
+      "github": "#"
+    }
+  },
+  {
+    "name": "Selamat Muliyadi Harjono",
+    "university": "Universitas Dumai",
+    "role": "AI Engineer",
+    "initials": "SMH",
+    "fromColor": "#8b5cf6",
+    "toColor": "#6d28d9",
+    "textColor": "#f5f3ff",
+    "socials": {
+      "instagram": "https://www.instagram.com/harjonoselamat",
+      "facebook": "#",
+      "linkedin": "https://linkedin.com/in/selamat-muliyadi-harjono",
+      "github": "https://github.com/ad4n6"
+    }
+  },
+  {
+    "name": "Ryan Alin Putra",
+    "university": "Politeknik Negeri Malang",
+    "role": "AI Engineer",
+    "initials": "RAP",
+    "fromColor": "#10b981",
+    "toColor": "#047857",
+    "textColor": "#ecfdf5",
+    "socials": {
+      "instagram": "https://www.instagram.com/ryanalinputra",
+      "facebook": "#",
+      "linkedin": "https://www.linkedin.com/in/ryanalinputra",
+      "github": "https://github.com/ryanalinputra"
+    }
+  },
+  {
+    "name": "Sabrina Zahra Nurhaerani",
+    "university": "Universitas Tiga Serangkai",
+    "role": "Data Scientist",
+    "initials": "SZN",
+    "fromColor": "#f59e0b",
+    "toColor": "#b45309",
+    "textColor": "#fffbeb",
+    "socials": {
+      "instagram": "#",
+      "facebook": "#",
+      "linkedin": "#",
+      "github": "#"
+    }
+  },
+  {
+    "name": "M. Isra Hi Karim",
+    "university": "Universitas Khairun",
+    "role": "Data Scientist",
+    "initials": "MIHK",
+    "fromColor": "#ec4899",
+    "toColor": "#be185d",
+    "textColor": "#fdf2f8",
+    "socials": {
+      "instagram": "#",
+      "facebook": "#",
+      "linkedin": "#",
+      "github": "#"
+    }
+  },
+  {
+    "name": "Nugie Saputra",
+    "university": "Universitas Tanjungpura",
+    "role": "Full-Stack Web Developer",
+    "initials": "NS",
+    "fromColor": "#06b6d4",
+    "toColor": "#0891b2",
+    "textColor": "#ecfeff",
+    "socials": {
+      "instagram": "#",
+      "facebook": "#",
+      "linkedin": "#",
+      "github": "#"
+    }
+  }
+]
